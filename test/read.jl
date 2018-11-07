@@ -1,6 +1,8 @@
 using MAT, Test
+using SparseArrays
+using LinearAlgebra
 
-function check(filename, result)
+function check(filename, result, format)
     matfile = matopen(filename)
     for (k, v) in result
         @test exists(matfile, k)
@@ -43,10 +45,11 @@ function check(filename, result)
     return true
 end
 
-global format
+#global format
 for format in ["v6", "v7", "v7.3"]
     cd(joinpath(dirname(@__FILE__), format))
 
+    println("Checking $format")
     result = Dict(
         "int8" => Int8(1),
         "uint8" => UInt8(1),
@@ -60,7 +63,7 @@ for format in ["v6", "v7", "v7.3"]
         "double" => Float64(1),
         "logical" => true
     )
-    check("simple.mat", result)
+    check("simple.mat", result, format)
     matfile = matopen("simple.mat")
     mat = read(matfile)
     close(matfile)
@@ -71,9 +74,9 @@ for format in ["v6", "v7", "v7.3"]
     end
 
     result = Dict(
-        "imaginary" => Complex128[1 -1 1+im 1-im -1+im -1-im im]
+        "imaginary" => ComplexF64[1 -1 1+im 1-im -1+im -1-im im]
     )
-    check("complex.mat", result)
+    check("complex.mat", result, format)
 
     result = Dict(
         "simple_string" => "the quick brown fox",
@@ -82,23 +85,23 @@ for format in ["v6", "v7", "v7.3"]
         "cell_strings" => Any["this is a string" "this is another string"],
         "empty_string" => ""
     )
-    check("string.mat", result)
+    check("string.mat", result, format)
 
     result = Dict(
         "a1x2" => [1.0 2.0],
         "a2x1" => zeros(2, 1)+[1.0, 2.0],
         "a2x2" => [1.0 3.0; 4.0 2.0],
-        "a2x2x2" => cat(3, [1.0 3.0; 4.0 2.0], [1.0 2.0; 3.0 4.0]),
+        "a2x2x2" => cat([1.0 3.0; 4.0 2.0], [1.0 2.0; 3.0 4.0], dims=3),
         "empty" => zeros(0, 0),
         "string" => "string"
     )
-    check("array.mat", result)
+    check("array.mat", result, format)
 
     result = Dict(
         "cell" => Any[v for _ in 1:1,
                       v in (1.0, 2.01, "string", Any["string1" "string2"])]
     )
-    check("cell.mat", result)
+    check("cell.mat", result, format)
 
     result = Dict(
         "s" => Dict{String,Any}(
@@ -108,7 +111,7 @@ for format in ["v6", "v7", "v7.3"]
         ),
         "s2" => Dict{String,Any}("a" => Any[1.0 2.0])
     )
-    check("struct.mat", result)
+    check("struct.mat", result, format)
 
     result = Dict(
         "logical" => false,
@@ -118,22 +121,22 @@ for format in ["v6", "v7", "v7.3"]
             true false false
         ]
     )
-    check("logical.mat", result)
+    check("logical.mat", result, format)
 
     result = Dict(
         "empty_cells" => Any[v for _ in 1:1, v in (zeros(0, 0), "test", zeros(0, 0))]
     )
-    check("empty_cells.mat", result)
+    check("empty_cells.mat", result, format)
 
     result = Dict(
-        "sparse_empty" => sparse(Matrix{Float64}(0, 0)),
-        "sparse_eye" => speye(20),
+        "sparse_empty" => sparse(Matrix{Float64}(undef, 0, 0)),
+        "sparse_eye" => SparseMatrixCSC{Float64}(LinearAlgebra.I, 20,20),
         "sparse_logical" => SparseMatrixCSC{Bool,Int64}(5, 5, [1:6;], [1:5;], fill(true, 5)),
         "sparse_random" => sparse([0 6. 0; 8. 0 1.; 0 0 9.]),
         "sparse_complex" => sparse([0 6. 0; 8. 0 1.; 0 0 9.]*(1. + 1.0im)),
         "sparse_zeros" => SparseMatrixCSC(20, 20, ones(Int, 21), Int[], Float64[])
     )
-    check("sparse.mat", result)
+    check("sparse.mat", result, format)
 
     matfile = matopen("partial.mat")
     var1 = read(matfile, "var1")
@@ -183,7 +186,7 @@ result = Dict(
        5.9509298374097952e+00   5.0678810528340978e+00   4.6985100256137695e+00   5.6806474798139019e+00   7.1270807068985986e+00   7.3896907513926973e+00   6.1956015245970972e+00   5.5852197604153861e+00   7.9143806050507850e+00   1.2903336221013145e+01   1.7478615210727796e+01   1.8733526717119613e+01   1.6557524998442712e+01   1.3237833414525580e+01   1.1194587213855545e+01   1.1742137197718762e+01   1.5292487123411739e+01   2.1089872768798958e+01   2.6615090233197662e+01   2.9112067948790987e+01   2.8381112807191901e+01   2.6745309556602031e+01   2.6230622139582557e+01   2.6873626067912664e+01   2.7379954661291766e+01   2.6724918542001461e+01   2.5352283105591539e+01   2.4558243711441179e+01   2.4278527981980282e+01   2.2429473534878777e+01   1.7501264178786681e+01   1.0987541340332779e+01   5.6451288588220212e+00   1.5426875751835269e+00  -4.2209755312065607e+00  -1.3196792287091672e+01  -2.2788705236686901e+01  -2.9082273423343587e+01  -3.1121693514905303e+01  -3.0849786691440926e+01  -2.9901975701231901e+01  -2.8187902353798506e+01  -2.4897002861955549e+01  -1.9629404309588349e+01  -1.3381778061564034e+01  -8.8077830839680740e+00  -8.0332756560395637e+00  -1.0120926859300432e+01  -1.2004163217689651e+01  -1.1842485990658060e+01  -1.0575962516702482e+01  -1.0149295488895902e+01  -1.0971618377841839e+01  -1.1645676947992518e+01  -1.0824020132311130e+01  -8.7473035146007145e+00  -6.7816366706045397e+00  -5.8695256679524599e+00  -6.1984801392743734e+00  -7.8537905857434129e+00  -1.0416960930281348e+01  -1.2429989647191839e+01  -1.2650740393840184e+01  -1.1521198276477271e+01
     ]
 )
-check(joinpath(dirname(@__FILE__), "big_endian.mat"), result)
+check(joinpath(dirname(@__FILE__), "big_endian.mat"), result, "v7.3")
 
 # test reading of mxOBJECT_CLASS (#57)
 let objtestfile = "obj.mat"

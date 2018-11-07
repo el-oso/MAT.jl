@@ -45,7 +45,7 @@ mutable struct MatlabHDF5File <: HDF5.DataFile
     function MatlabHDF5File(plain, toclose::Bool=true, writeheader::Bool=false, refcounter::Int=0)
         f = new(plain, toclose, writeheader, refcounter)
         if toclose
-            finalizer(f, close)
+            finalizer(close, f)
         end
         f
     end
@@ -122,18 +122,20 @@ function read_complex(dtype::HDF5Datatype, dset::HDF5Dataset, ::Type{Array{T}}) 
     end
     memtype = build_datatype_complex(T)
     sz = size(dset)
-    dbuf = Array{T}(2, sz...)
+    dbuf = Array{T}(undef, 2, sz...)
     st = sizeof(T)
-    buf = reinterpret(UInt8, dbuf, (2 * st, sz...))
+    #buf = reinterpret(UInt8, dbuf, (2 * st, sz...))
+    buf = reshape(reinterpret(UInt8, vec(dbuf)), (2 * st, sz...))
     HDF5.h5d_read(dset.id, memtype.id, HDF5.H5S_ALL, HDF5.H5S_ALL, HDF5.H5P_DEFAULT, buf)
 
     if T == Float32
-        d = reinterpret(Complex64, dbuf, sz)
+        d = reshape(reinterpret(ComplexF32, vec(dbuf)), sz)
     elseif T == Float64
-        d = reinterpret(Complex128, dbuf, sz)
+        d = reshape(reinterpret(ComplexF64, vec(dbuf)), sz)
     else
         d = slicedim(dbuf, 1, 1) + im * slicedim(dbuf, 1, 2)
     end
+    d = convert(Array, d)
     length(d) == 1 ? d[1] : d
 end
 
@@ -146,7 +148,7 @@ function m_read(dset::HDF5Dataset)
             return ""
         else
             T = mattype == "canonical empty" ? Union{} : str2eltype_matlab[mattype]
-            return Array{T}(dims...)
+            return Array{T}(undef, dims...)
         end
     end
 
@@ -155,7 +157,7 @@ function m_read(dset::HDF5Dataset)
     if mattype == "cell"
         # Cell arrays, represented as an array of refs
         refs = read(dset, Array{HDF5ReferenceObj})
-        out = Array{Any}(size(refs))
+        out = Array{Any}(undef, size(refs))
         f = file(dset)
         for i = 1:length(refs)
             dset = f[refs[i]]
@@ -290,7 +292,7 @@ elseif length(s) > 63
 end
 
 toarray(x::Array) = x
-toarray(x::Array{Bool}) = reinterpret(UInt8, x)
+toarray(x::Array{Bool}) = convert(Array, reinterpret(UInt8, x))
 toarray(x::Bool) = UInt8[x]
 toarray(x) = [x]
 
@@ -590,9 +592,9 @@ function read(obj::HDF5Object, ::Type{MatlabString})
         data = reshape(data, sz[2:end])
     end
     if ndims(data) == 1
-        return convert(String, convert(Vector{Char}, data))
+        return String(convert(Vector{Char}, data))
     elseif ndims(data) == 2
-        return datap = String[rstrip(convert(String, convert(Vector{Char}, vec(data[i, :])))) for i = 1:size(data, 1)]
+        return datap = String[rstrip(String(convert(Vector{Char}, vec(data[i, :])))) for i = 1:size(data, 1)]
     else
         return data
     end
@@ -603,7 +605,7 @@ function read(obj::HDF5Object, ::Type{Bool})
 end
 function read(obj::HDF5Object, ::Type{Array{Bool}})
     tf = read(obj, Array{UInt8})
-    reinterpret(Bool, tf)
+    convert(Array, reinterpret(Bool, tf))
 end
 
 ## Utilities for handling complex numbers
