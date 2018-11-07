@@ -49,7 +49,7 @@ end
 for format in ["v6", "v7", "v7.3"]
     cd(joinpath(dirname(@__FILE__), format))
 
-    println("Checking $format")
+    println("Checking reading $format format")
     result = Dict(
         "int8" => Int8(1),
         "uint8" => UInt8(1),

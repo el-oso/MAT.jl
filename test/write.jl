@@ -1,4 +1,5 @@
 using MAT
+using LinearAlgebra
 
 tmpfile = string(tempname, ".mat")
 
@@ -50,7 +51,7 @@ test_write(Dict(
 	"a1x2" => [1.0 2.0],
 	"a2x1" => zeros(2, 1)+[1.0, 2.0],
 	"a2x2" => [1.0 3.0; 4.0 2.0],
-	"a2x2x2" => cat(3, [1.0 3.0; 4.0 2.0], [1.0 2.0; 3.0 4.0]),
+	"a2x2x2" => cat([1.0 3.0; 4.0 2.0], [1.0 2.0; 3.0 4.0], dims=3),
 	"empty" => zeros(0, 0),
 	"string" => "string"
 ))
@@ -69,8 +70,8 @@ test_write(Dict(
 ))
 
 test_write(Dict(
-	"sparse_empty" => sparse(Matrix{Float64}(0, 0)),
-	"sparse_eye" => speye(20),
+	"sparse_empty" => sparse(Matrix{Float64}(undef, 0, 0)),
+	"sparse_eye" => SparseMatrixCSC{Float64}(LinearAlgebra.I, 20,20),
 	"sparse_logical" => SparseMatrixCSC{Bool,Int64}(5, 5, [1:6;], [1:5;], fill(true, 5)),
 	"sparse_random" => sparse([0 6. 0; 8. 0 1.; 0 0 9.]),
 	"sparse_complex" => sparse([0 6. 0; 8. 0 1.; 0 0 9.]*(1. + 1.0im)),
@@ -103,6 +104,6 @@ sd = SortedDict(Dict(
 	"Complex128" => [1.0 -1.0 1.0+1.0im 1.0-1.0im -1.0+1.0im -1.0-1.0im 1.0im],
 	"simple_string" => "the quick brown fox",
 	"a1x2" => [1.0 2.0],
-	"sparse_empty" => sparse(Matrix{Float64}(0, 0))
+	"sparse_empty" => sparse(Matrix{Float64}(undef, 0, 0))
 ))
 test_write(sd)

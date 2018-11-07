@@ -62,7 +62,7 @@ function close(f::MatlabHDF5File)
         if f.writeheader
             magic = zeros(UInt8, 512)
             identifier = "MATLAB 7.3 MAT-file" # minimal but sufficient
-            magic[1:length(identifier)] = Vector{UInt8}(identifier)
+            magic[1:length(identifier)] = codeunits(identifier)
             magic[126] = 0x02
             magic[127] = 0x49
             magic[128] = 0x4d
@@ -124,7 +124,6 @@ function read_complex(dtype::HDF5Datatype, dset::HDF5Dataset, ::Type{Array{T}}) 
     sz = size(dset)
     dbuf = Array{T}(undef, 2, sz...)
     st = sizeof(T)
-    #buf = reinterpret(UInt8, dbuf, (2 * st, sz...))
     buf = reshape(reinterpret(UInt8, vec(dbuf)), (2 * st, sz...))
     HDF5.h5d_read(dset.id, memtype.id, HDF5.H5S_ALL, HDF5.H5S_ALL, HDF5.H5P_DEFAULT, buf)
 
@@ -133,7 +132,7 @@ function read_complex(dtype::HDF5Datatype, dset::HDF5Dataset, ::Type{Array{T}}) 
     elseif T == Float64
         d = reshape(reinterpret(ComplexF64, vec(dbuf)), sz)
     else
-        d = slicedim(dbuf, 1, 1) + im * slicedim(dbuf, 1, 2)
+        d = copy(selectdim(dbuf, 1, 1) + im * copy(selectdim(dbuf, 1, 2)))
     end
     d = convert(Array, d)
     length(d) == 1 ? d[1] : d
@@ -345,8 +344,8 @@ function m_writearray(parent::HDF5Parent, name::String, adata::Array{Complex{T}}
         obj_id = HDF5.h5d_create(parent.id, name, dtype.id, stype.id)
         dset = HDF5Dataset(obj_id, file(parent))
         try
-            arr = reinterpret(T, adata, tuple(2, size(adata)...))
-            HDF5.writearray(dset, dtype.id, arr)
+            arr = reshape(reinterpret(T, vec(adata)), tuple(2, size(adata)...))
+            HDF5.writearray(dset, dtype.id, convert(Array, arr))
         catch e
             close(dset)
             rethrow(e)
@@ -458,7 +457,7 @@ function m_write(mfile::MatlabHDF5File, parent::HDF5Parent, name::String, data::
             close(a)
         end
         # Write the items to the reference group
-        refs = Array{HDF5ReferenceObj}(size(data))
+        refs = Array{HDF5ReferenceObj}(undef, size(data))
         for i = 1:length(data)
             mfile.refcounter += 1
             itemname = string(mfile.refcounter)
@@ -484,7 +483,7 @@ end
 
 # Check that keys are valid for a struct, and convert them to an array of ASCIIStrings
 function check_struct_keys(k::Vector)
-    asckeys = Vector{String}(length(k))
+    asckeys = Vector{String}(undef, length(k))
     for i = 1:length(k)
         key = k[i]
         if !isa(key, AbstractString)
@@ -590,6 +589,7 @@ function read(obj::HDF5Object, ::Type{MatlabString})
     if size(data, 1) == 1
         sz = size(data)
         data = reshape(data, sz[2:end])
+        data = convert(Array, data)
     end
     if ndims(data) == 1
         return String(convert(Vector{Char}, data))
