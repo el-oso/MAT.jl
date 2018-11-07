@@ -256,6 +256,7 @@ function read(f::MatlabHDF5File, name::String)
     local val
     obj = f.plain[name]
     try
+        println(f)
         val = m_read(obj)
     finally
         close(obj)
